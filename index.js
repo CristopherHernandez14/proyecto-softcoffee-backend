@@ -28,33 +28,26 @@ app.set("view engine", "ejs");
 const historialPath = path.join(__dirname, "historial.json");
 
 // ===============================
-// CONFIGURACIÓN WEBPAY (INTEGRACIÓN)
-// ===============================
-const webpay = new WebpayPlus({
-  commerceCode: process.env.TBK_COMMERCE_CODE,
-  apiKey: process.env.TBK_API_KEY,
-  environment: "integration" // Cambiar a 'production' cuando sea necesario
-});
-
-// ===============================
 // CREAR TRANSACCIÓN
 // ===============================
 app.post("/webpay/create", async (req, res) => {
   try {
     const { buyOrder, sessionId, amount } = req.body;
 
-    const response = await webpay.createTransaction({
+    const response = await WebpayPlus.Transaction.create({
       buyOrder,
       sessionId,
       amount,
-      returnUrl: process.env.TBK_RETURN_URL
+      returnUrl: process.env.TBK_RETURN_URL,
+      commerceCode: process.env.TBK_COMMERCE_CODE,
+      apiKey: process.env.TBK_API_KEY,
+      environment: "integration" // cambiar a 'production' cuando sea necesario
     });
 
     return res.json({
       url: response.url,
       token: response.token
     });
-
   } catch (error) {
     console.error("Error al crear transacción:", error);
     return res.status(500).json({ error: "Error al crear transacción" });
@@ -79,7 +72,12 @@ app.post("/webpay/commit", async (req, res) => {
   const productos = req.body.productos || [];
 
   try {
-    const response = await webpay.commitTransaction(token);
+    const response = await WebpayPlus.Transaction.commit({
+      token,
+      commerceCode: process.env.TBK_COMMERCE_CODE,
+      apiKey: process.env.TBK_API_KEY,
+      environment: "integration" // cambiar a 'production' cuando sea necesario
+    });
 
     const registro = {
       id_transaccion: response.buy_order,
@@ -91,18 +89,14 @@ app.post("/webpay/commit", async (req, res) => {
     };
 
     let historial = {};
-
     if (await fs.pathExists(historialPath)) {
       historial = await fs.readJSON(historialPath);
     }
-
     if (!historial[correo]) historial[correo] = [];
     historial[correo].push(registro);
-
     await fs.writeJSON(historialPath, historial, { spaces: 2 });
 
     return res.json(registro);
-
   } catch (error) {
     console.error("Error en commit:", error);
     return res.status(500).json({ error: "Error en commit" });
@@ -116,13 +110,9 @@ app.get("/historial/:correo", async (req, res) => {
   const correo = req.params.correo;
 
   try {
-    if (!(await fs.pathExists(historialPath))) {
-      return res.json([]);
-    }
-
+    if (!(await fs.pathExists(historialPath))) return res.json([]);
     const historial = await fs.readJSON(historialPath);
     return res.json(historial[correo] || []);
-
   } catch (error) {
     console.error("Error leyendo historial:", error);
     return res.status(500).json({ error: "Error leyendo historial" });
