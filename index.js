@@ -5,11 +5,14 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs-extra";
 import dotenv from "dotenv";
-import mercadopago from "mercadopago";
+import mercadopagoPkg from "mercadopago";
 
 dotenv.config();
 
-// Configurar Mercado Pago
+// Adaptar import de Mercado Pago
+const mercadopago = mercadopagoPkg.default || mercadopagoPkg;
+
+// Configurar token de sandbox
 mercadopago.configurations.setAccessToken(process.env.MP_ACCESS_TOKEN);
 
 const app = express();
@@ -25,79 +28,80 @@ const __dirname = path.dirname(__filename);
 app.set("views", path.join(__dirname, "views"));
 app.set("view engine", "ejs");
 
-// Historial de compras
+// Archivo historial
 const historialPath = path.join(__dirname, "historial.json");
 
 // ===============================
-// CREAR PREFERENCIA DE PAGO
+// CREAR PAGO CON MERCADO PAGO
 // ===============================
-app.post("/pago/create", async (req, res) => {
+app.post("/payment/create", async (req, res) => {
   try {
-    const { correo, carrito, total } = req.body;
-    if (!correo || !carrito || !total) {
+    const { correo, productos, total } = req.body;
+    if (!correo || !total) {
       return res.status(400).json({ error: "Faltan datos en la solicitud" });
     }
 
-    const items = carrito.map((p, i) => ({
-      id: i + "",
-      title: p.nombre,
-      quantity: 1,
-      currency_id: "CLP",
-      unit_price: Number(p.precio)
-    }));
-
+    // Crear preferencia
     const preference = {
-      items,
-      payer: { email: correo },
-      back_urls: {
-        success: process.env.MP_RETURN_URL,
-        failure: process.env.MP_RETURN_URL,
-        pending: process.env.MP_RETURN_URL
+      items: productos.map(p => ({
+        title: p.nombre,
+        quantity: 1,
+        unit_price: p.precio,
+      })),
+      payer: {
+        email: correo,
       },
-      auto_return: "approved"
+      back_urls: {
+        success: `${process.env.BACKEND_URL}/payment/success`,
+        failure: `${process.env.BACKEND_URL}/payment/failure`,
+        pending: `${process.env.BACKEND_URL}/payment/pending`,
+      },
+      auto_return: "approved",
     };
 
     const response = await mercadopago.preferences.create(preference);
 
-    return res.json({ url: response.body.init_point });
+    return res.json({
+      init_point: response.response.init_point,
+      preference_id: response.response.id
+    });
 
   } catch (error) {
-    console.error("❌ Error al crear preferencia:", error);
-    return res.status(500).json({ error: "Error al crear preferencia", detalles: error.message });
+    console.error("❌ Error creando pago:", error);
+    return res.status(500).json({
+      error: "Error creando pago",
+      detalles: error.message || error
+    });
   }
 });
 
 // ===============================
-// RETURN DESDE MERCADO PAGO
+// ENDPOINTS DE REDIRECCIÓN
 // ===============================
-app.get("/pago/return", (req, res) => {
-  res.send("Pago completado. Puedes cerrar esta ventana.");
+app.get("/payment/success", (req, res) => {
+  res.send("Pago aprobado ✅");
+});
+
+app.get("/payment/failure", (req, res) => {
+  res.send("Pago fallido ❌");
+});
+
+app.get("/payment/pending", (req, res) => {
+  res.send("Pago pendiente ⏳");
 });
 
 // ===============================
 // HISTORIAL DE COMPRAS
 // ===============================
-app.post("/historial/save", async (req, res) => {
-  const { correo, carrito, total } = req.body;
+app.get("/historial/:correo", async (req, res) => {
+  const correo = req.params.correo;
   try {
-    let historial = {};
-    if (await fs.pathExists(historialPath)) {
-      historial = await fs.readJSON(historialPath);
-    }
-    if (!historial[correo]) historial[correo] = [];
-
-    historial[correo].push({
-      fecha: new Date().toISOString(),
-      productos: carrito.map(p => `${p.nombre} ($${p.precio})`),
-      monto: total,
-      metodo: "Mercado Pago"
-    });
-
-    await fs.writeJSON(historialPath, historial, { spaces: 2 });
-    return res.json({ ok: true });
+    if (!(await fs.pathExists(historialPath))) return res.json([]);
+    const historial = await fs.readJSON(historialPath);
+    return res.json(historial[correo] || []);
   } catch (error) {
-    console.error("Error guardando historial:", error);
-    return res.status(500).json({ error: "Error guardando historial" });
+    console.error("Error leyendo historial:", error);
+    return res.status(500).json({ error: "Error leyendo historial" });
   }
 });
 
@@ -106,5 +110,5 @@ app.post("/historial/save", async (req, res) => {
 // ===============================
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log("Backend Mercado Pago funcionando en Render en puerto", PORT);
+  console.log(`Backend Mercado Pago funcionando en Render en puerto ${PORT}`);
 });
