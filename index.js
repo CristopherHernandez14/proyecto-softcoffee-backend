@@ -5,11 +5,10 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs-extra";
 import dotenv from "dotenv";
-import pkg from "transbank-sdk";
+import { WebpayPlus } from "transbank-sdk";
 
-dotenv.config(); // Cargar variables del archivo .env
+dotenv.config();
 
-const { WebpayPlus } = pkg;
 const app = express();
 
 // Middleware
@@ -26,21 +25,14 @@ app.set("view engine", "ejs");
 // Archivo historial
 const historialPath = path.join(__dirname, "historial.json");
 
-
 // ===============================
 // CONFIGURACIÓN WEBPAY (INTEGRACIÓN)
 // ===============================
-// Tu comercio usa código y API de integración,
-// por eso NO debes usar producción.
-
-WebpayPlus.configureForIntegration(
-  process.env.TBK_COMMERCE_CODE,
-  process.env.TBK_API_KEY
-);
-
-// Instancia de transacción
-const webpay = new WebpayPlus.Transaction();
-
+const webpay = new WebpayPlus({
+  commerceCode: process.env.TBK_COMMERCE_CODE,
+  apiKey: process.env.TBK_API_KEY,
+  environment: "integration" // Cambiar a 'production' cuando sea necesario
+});
 
 // ===============================
 // CREAR TRANSACCIÓN
@@ -49,12 +41,12 @@ app.post("/webpay/create", async (req, res) => {
   try {
     const { buyOrder, sessionId, amount } = req.body;
 
-    const response = await webpay.create(
+    const response = await webpay.createTransaction({
       buyOrder,
       sessionId,
       amount,
-      process.env.TBK_RETURN_URL
-    );
+      returnUrl: process.env.TBK_RETURN_URL
+    });
 
     return res.json({
       url: response.url,
@@ -67,20 +59,14 @@ app.post("/webpay/create", async (req, res) => {
   }
 });
 
-
 // ===============================
 // RETURN DESDE WEBPAY
 // ===============================
 app.get("/webpay/return", (req, res) => {
   const token = req.query.token_ws;
-
-  if (!token) {
-    return res.send("No se recibió token de Webpay.");
-  }
-
+  if (!token) return res.send("No se recibió token de Webpay.");
   res.render("commit", { token });
 });
-
 
 // ===============================
 // CONFIRMAR TRANSACCIÓN (COMMIT)
@@ -91,7 +77,7 @@ app.post("/webpay/commit", async (req, res) => {
   const productos = req.body.productos || [];
 
   try {
-    const response = await webpay.commit(token);
+    const response = await webpay.commitTransaction(token);
 
     const registro = {
       id_transaccion: response.buy_order,
@@ -109,7 +95,6 @@ app.post("/webpay/commit", async (req, res) => {
     }
 
     if (!historial[correo]) historial[correo] = [];
-
     historial[correo].push(registro);
 
     await fs.writeJSON(historialPath, historial, { spaces: 2 });
@@ -121,7 +106,6 @@ app.post("/webpay/commit", async (req, res) => {
     return res.status(500).json({ error: "Error en commit" });
   }
 });
-
 
 // ===============================
 // HISTORIAL DE COMPRAS
@@ -143,12 +127,10 @@ app.get("/historial/:correo", async (req, res) => {
   }
 });
 
-
 // ===============================
 // SERVIDOR
 // ===============================
 const PORT = process.env.PORT || 10000;
-
 app.listen(PORT, () => {
   console.log("Backend Webpay funcionando en Render en puerto", PORT);
 });
