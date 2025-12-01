@@ -43,25 +43,24 @@ app.post("/webpay/create", async (req, res) => {
       return res.status(400).json({ error: "Faltan datos en la solicitud" });
     }
 
-    console.log("🔹 buyOrder:", buyOrder);
-    console.log("🔹 sessionId:", sessionId);
-    console.log("🔹 amount:", amount);
-    console.log("🔹 returnUrl:", process.env.TBK_RETURN_URL);
+    // 🔹 Asegurar URL válida
+    let returnUrl;
+    try {
+      returnUrl = new URL(process.env.TBK_RETURN_URL.trim());
+    } catch (e) {
+      console.error("❌ URL inválida:", process.env.TBK_RETURN_URL);
+      return res.status(500).json({ error: "URL de retorno inválida", detalles: e.message });
+    }
 
     // 🔹 Crear instancia de WebpayPlus
     const transaction = new WebpayPlus.Transaction({
-      commerceCode: process.env.TBK_COMMERCE_CODE,
-      apiKey: process.env.TBK_API_KEY,
-      environment: "integration" // correcto para v6.x
+      commerceCode: process.env.TBK_COMMERCE_CODE.trim(),
+      apiKey: process.env.TBK_API_KEY.trim(),
+      environment: "integration"
     });
 
     // 🔹 Crear transacción
-    const response = await transaction.create(
-      buyOrder,
-      sessionId,
-      amount,
-      process.env.TBK_RETURN_URL // string directo
-    );
+    const response = await transaction.create(buyOrder, sessionId, amount, returnUrl.href);
 
     console.log("✅ Transacción creada:", response);
 
