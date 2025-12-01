@@ -25,7 +25,7 @@ app.set("view engine", "ejs");
 const historialPath = path.join(__dirname, "historial.json");
 
 // ===============================
-// CREAR TRANSACCIÓN (Webpay REST)
+// CREAR TRANSACCIÓN
 // ===============================
 app.post("/webpay/create", async (req, res) => {
   try {
@@ -34,10 +34,13 @@ app.post("/webpay/create", async (req, res) => {
       return res.status(400).json({ error: "Faltan datos en la solicitud" });
     }
 
-    // URL base integración Webpay REST
-    const baseUrl = "https://webpay3gint.transbank.cl"; // Integración
+    // URL de integración Webpay REST
+    const baseUrl = "https://webpay3gint.transbank.cl";
 
-    // Crear transacción
+    // Credenciales oficiales de integración (sandbox)
+    const commerceCode = "597055555532";
+    const apiKey = "579B60E57DF44C24A0F1BBE2E5B7C6DF";
+
     const response = await axios.post(`${baseUrl}/rswebpaytransaction/api/webpay/v1.0/transactions`, {
       buy_order: buyOrder,
       session_id: sessionId,
@@ -45,8 +48,8 @@ app.post("/webpay/create", async (req, res) => {
       return_url: process.env.TBK_RETURN_URL
     }, {
       headers: {
-        "Tbk-Api-Key-Id": process.env.TBK_COMMERCE_CODE,
-        "Tbk-Api-Key-Secret": process.env.TBK_API_KEY,
+        "Tbk-Api-Key-Id": commerceCode,
+        "Tbk-Api-Key-Secret": apiKey,
         "Content-Type": "application/json"
       }
     });
@@ -96,5 +99,5 @@ app.get("/historial/:correo", async (req, res) => {
 // ===============================
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log("Backend Webpay REST funcionando en Render en puerto", PORT);
+  console.log("Backend Webpay REST Integración funcionando en Render en puerto", PORT);
 });
