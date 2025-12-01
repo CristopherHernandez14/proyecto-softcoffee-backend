@@ -34,11 +34,11 @@ const historialPath = path.join(__dirname, "historial.json");
 // CREAR TRANSACCIÓN
 // ===============================
 
+
 app.post("/webpay/create", async (req, res) => {
   try {
     const { buyOrder, sessionId, amount } = req.body;
 
-    // 🔹 Mostrar variables para debug
     console.log("🔹 buyOrder:", buyOrder);
     console.log("🔹 sessionId:", sessionId);
     console.log("🔹 amount:", amount);
@@ -47,15 +47,14 @@ app.post("/webpay/create", async (req, res) => {
     const transaction = new WebpayPlus.Transaction({
       commerceCode: process.env.TBK_COMMERCE_CODE,
       apiKey: process.env.TBK_API_KEY,
-      environment: WebpayPlus.Environment.Integration // 🔹 usar enum del SDK
+      environment: "integration" // 🔹 versión correcta para SDK 6.x
     });
 
-    // 🔹 Crear transacción
     const response = await transaction.create(
       buyOrder,
       sessionId,
       amount,
-      new URL(process.env.TBK_RETURN_URL) // 🔹 parsear como URL explícitamente
+      process.env.TBK_RETURN_URL // 🔹 string directo
     );
 
     console.log("✅ Transacción creada:", response);
