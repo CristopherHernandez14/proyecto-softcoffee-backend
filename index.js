@@ -34,6 +34,7 @@ app.post("/webpay/create", async (req, res) => {
   try {
     const { buyOrder, sessionId, amount } = req.body;
 
+    // 🔹 Intentamos crear la transacción con Transbank
     const response = await WebpayPlus.Transaction.create({
       buyOrder,
       sessionId,
@@ -41,30 +42,35 @@ app.post("/webpay/create", async (req, res) => {
       returnUrl: process.env.TBK_RETURN_URL,
       commerceCode: process.env.TBK_COMMERCE_CODE,
       apiKey: process.env.TBK_API_KEY,
-      environment: "integration" // cambiar a 'production' cuando sea necesario
+      environment: "integration"
     });
+
+    console.log("✅ Transacción creada con éxito:", response);
 
     return res.json({
       url: response.url,
       token: response.token
     });
+
   } catch (error) {
-    console.error("Error al crear transacción:", error);
-    return res.status(500).json({ error: "Error al crear transacción" });
+    // 🔹 Mostrar todo el error que devuelve Transbank
+    console.error("❌ Error al crear transacción:", error);
+
+    // Mostrar detalles si Transbank devuelve response
+    if (error?.response) {
+      console.error("Detalles del error Transbank:", error.response);
+    }
+
+    return res.status(500).json({
+      error: "Error al crear transacción",
+      detalles: error?.response || error.message || error
+    });
   }
 });
 
-// ===============================
-// RETURN DESDE WEBPAY
-// ===============================
-app.get("/webpay/return", (req, res) => {
-  const token = req.query.token_ws;
-  if (!token) return res.send("No se recibió token de Webpay.");
-  res.render("commit", { token });
-});
 
 // ===============================
-// CONFIRMAR TRANSACCIÓN (COMMIT)
+// RETURN DESDE WEBPAY Y COMMIT AUTOMÁTICO
 // ===============================
 app.post("/webpay/commit", async (req, res) => {
   const token = req.body.token_ws;
@@ -76,7 +82,7 @@ app.post("/webpay/commit", async (req, res) => {
       token,
       commerceCode: process.env.TBK_COMMERCE_CODE,
       apiKey: process.env.TBK_API_KEY,
-      environment: "integration" // cambiar a 'production' cuando sea necesario
+      environment: "integration"
     });
 
     const registro = {
@@ -94,6 +100,7 @@ app.post("/webpay/commit", async (req, res) => {
     }
     if (!historial[correo]) historial[correo] = [];
     historial[correo].push(registro);
+
     await fs.writeJSON(historialPath, historial, { spaces: 2 });
 
     return res.json(registro);
@@ -101,6 +108,15 @@ app.post("/webpay/commit", async (req, res) => {
     console.error("Error en commit:", error);
     return res.status(500).json({ error: "Error en commit" });
   }
+});
+
+// ===============================
+// RETURN DESDE WEBPAY (solo para redirección de navegador, opcional)
+// ===============================
+app.get("/webpay/return", (req, res) => {
+  const token = req.query.token_ws;
+  if (!token) return res.send("No se recibió token de Webpay.");
+  res.render("commit", { token });
 });
 
 // ===============================
