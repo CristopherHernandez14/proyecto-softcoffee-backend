@@ -4,7 +4,10 @@ import bodyParser from "body-parser";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs-extra";
+import dotenv from "dotenv";
 import pkg from "transbank-sdk";
+
+dotenv.config(); // Cargar variables del archivo .env
 
 const { WebpayPlus } = pkg;
 const app = express();
@@ -24,15 +27,24 @@ app.set("view engine", "ejs");
 const historialPath = path.join(__dirname, "historial.json");
 
 
-// INSTANCIA WEBPAY
-const webpay = new WebpayPlus.Transaction(
-  "597055555532", 
-  "clave-secreta",     
-  "https://webpay3gint.transbank.cl"
+// ===============================
+// CONFIGURACIÓN WEBPAY (INTEGRACIÓN)
+// ===============================
+// Tu comercio usa código y API de integración,
+// por eso NO debes usar producción.
+
+WebpayPlus.configureForIntegration(
+  process.env.TBK_COMMERCE_CODE,
+  process.env.TBK_API_KEY
 );
 
+// Instancia de transacción
+const webpay = new WebpayPlus.Transaction();
 
+
+// ===============================
 // CREAR TRANSACCIÓN
+// ===============================
 app.post("/webpay/create", async (req, res) => {
   try {
     const { buyOrder, sessionId, amount } = req.body;
@@ -41,7 +53,7 @@ app.post("/webpay/create", async (req, res) => {
       buyOrder,
       sessionId,
       amount,
-      "https://proyecto-softcoffee-backend.onrender.com/webpay/return"
+      process.env.TBK_RETURN_URL
     );
 
     return res.json({
@@ -51,12 +63,14 @@ app.post("/webpay/create", async (req, res) => {
 
   } catch (error) {
     console.error("Error al crear transacción:", error);
-    res.status(500).json({ error: "Error al crear transacción" });
+    return res.status(500).json({ error: "Error al crear transacción" });
   }
 });
 
 
-// RETORNO
+// ===============================
+// RETURN DESDE WEBPAY
+// ===============================
 app.get("/webpay/return", (req, res) => {
   const token = req.query.token_ws;
 
@@ -68,10 +82,11 @@ app.get("/webpay/return", (req, res) => {
 });
 
 
-// CONFIRMAR TRANSACCIÓN
+// ===============================
+// CONFIRMAR TRANSACCIÓN (COMMIT)
+// ===============================
 app.post("/webpay/commit", async (req, res) => {
   const token = req.body.token_ws;
-
   const correo = req.body.correo;
   const productos = req.body.productos || [];
 
@@ -93,9 +108,7 @@ app.post("/webpay/commit", async (req, res) => {
       historial = await fs.readJSON(historialPath);
     }
 
-    if (!historial[correo]) {
-      historial[correo] = [];
-    }
+    if (!historial[correo]) historial[correo] = [];
 
     historial[correo].push(registro);
 
@@ -105,12 +118,14 @@ app.post("/webpay/commit", async (req, res) => {
 
   } catch (error) {
     console.error("Error en commit:", error);
-    res.status(500).json({ error: "Error en commit" });
+    return res.status(500).json({ error: "Error en commit" });
   }
 });
 
 
-// HISTORIAL
+// ===============================
+// HISTORIAL DE COMPRAS
+// ===============================
 app.get("/historial/:correo", async (req, res) => {
   const correo = req.params.correo;
 
@@ -120,17 +135,20 @@ app.get("/historial/:correo", async (req, res) => {
     }
 
     const historial = await fs.readJSON(historialPath);
-
     return res.json(historial[correo] || []);
 
   } catch (error) {
     console.error("Error leyendo historial:", error);
-    res.status(500).json({ error: "Error leyendo historial" });
+    return res.status(500).json({ error: "Error leyendo historial" });
   }
 });
 
 
+// ===============================
+// SERVIDOR
+// ===============================
+const PORT = process.env.PORT || 10000;
 
-app.listen(10000, () => {
-  console.log("Backend Webpay funcionando en Render");
+app.listen(PORT, () => {
+  console.log("Backend Webpay funcionando en Render en puerto", PORT);
 });
