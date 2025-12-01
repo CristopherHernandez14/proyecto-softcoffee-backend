@@ -17,6 +17,8 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+// Ruta de prueba
 app.get("/ping", (req, res) => {
   res.json({ ok: true });
 });
@@ -33,28 +35,32 @@ const historialPath = path.join(__dirname, "historial.json");
 // ===============================
 // CREAR TRANSACCIÓN
 // ===============================
-
-
 app.post("/webpay/create", async (req, res) => {
   try {
     const { buyOrder, sessionId, amount } = req.body;
+
+    if (!buyOrder || !sessionId || !amount) {
+      return res.status(400).json({ error: "Faltan datos en la solicitud" });
+    }
 
     console.log("🔹 buyOrder:", buyOrder);
     console.log("🔹 sessionId:", sessionId);
     console.log("🔹 amount:", amount);
     console.log("🔹 returnUrl:", process.env.TBK_RETURN_URL);
 
+    // 🔹 Crear instancia de WebpayPlus
     const transaction = new WebpayPlus.Transaction({
       commerceCode: process.env.TBK_COMMERCE_CODE,
       apiKey: process.env.TBK_API_KEY,
-      environment: "integration" // 🔹 versión correcta para SDK 6.x
+      environment: "integration" // correcto para v6.x
     });
 
+    // 🔹 Crear transacción
     const response = await transaction.create(
       buyOrder,
       sessionId,
       amount,
-      process.env.TBK_RETURN_URL // 🔹 string directo
+      process.env.TBK_RETURN_URL // string directo
     );
 
     console.log("✅ Transacción creada:", response);
@@ -73,29 +79,30 @@ app.post("/webpay/create", async (req, res) => {
   }
 });
 
-
-
 // ===============================
-// RETURN DESDE WEBPAY Y COMMIT AUTOMÁTICO
+// COMMIT DE TRANSACCIÓN
 // ===============================
 app.post("/webpay/commit", async (req, res) => {
-  const token = req.body.token_ws;
-  const correo = req.body.correo;
-  const productos = req.body.productos || [];
-
   try {
-    const response = await WebpayPlus.Transaction.commit({
-      token,
+    const { token_ws: token, correo, productos = [] } = req.body;
+
+    if (!token || !correo) {
+      return res.status(400).json({ error: "Faltan datos para commit" });
+    }
+
+    const transaction = new WebpayPlus.Transaction({
       commerceCode: process.env.TBK_COMMERCE_CODE,
       apiKey: process.env.TBK_API_KEY,
       environment: "integration"
     });
 
+    const response = await transaction.commit(token);
+
     const registro = {
       id_transaccion: response.buy_order,
       fecha: new Date().toISOString(),
       monto: response.amount,
-      productos: productos,
+      productos,
       estado: response.status,
       metodo: "Webpay Plus"
     };
@@ -110,15 +117,15 @@ app.post("/webpay/commit", async (req, res) => {
     await fs.writeJSON(historialPath, historial, { spaces: 2 });
 
     return res.json(registro);
+
   } catch (error) {
-    console.error("Error en commit:", error);
-    return res.status(500).json({ error: "Error en commit" });
+    console.error("❌ Error en commit:", error);
+    return res.status(500).json({ error: "Error en commit", detalles: error.message || error });
   }
 });
 
 // ===============================
-// RETURN DESDE WEBPAY (solo para redirección de navegador, opcional)
-// ===============================
+// RETURN DESDE WEBPAY (redirección navegador)
 app.get("/webpay/return", (req, res) => {
   const token = req.query.token_ws;
   if (!token) return res.send("No se recibió token de Webpay.");
@@ -127,7 +134,6 @@ app.get("/webpay/return", (req, res) => {
 
 // ===============================
 // HISTORIAL DE COMPRAS
-// ===============================
 app.get("/historial/:correo", async (req, res) => {
   const correo = req.params.correo;
 
@@ -136,18 +142,14 @@ app.get("/historial/:correo", async (req, res) => {
     const historial = await fs.readJSON(historialPath);
     return res.json(historial[correo] || []);
   } catch (error) {
-    console.error("Error leyendo historial:", error);
-    return res.status(500).json({ error: "Error leyendo historial" });
+    console.error("❌ Error leyendo historial:", error);
+    return res.status(500).json({ error: "Error leyendo historial", detalles: error.message || error });
   }
 });
 
 // ===============================
 // SERVIDOR
-// ===============================
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log("Backend Webpay funcionando en Render en puerto", PORT);
+  console.log("✅ Backend Webpay funcionando en Render en puerto", PORT);
 });
-
-
-
