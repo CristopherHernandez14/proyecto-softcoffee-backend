@@ -5,9 +5,11 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs-extra";
 import dotenv from "dotenv";
-import { WebpayPlus } from "transbank-sdk";
+import pkg from "transbank-sdk";
 
 dotenv.config();
+
+const { WebpayPlus } = pkg;
 
 const app = express();
 
