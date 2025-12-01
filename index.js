@@ -4,8 +4,9 @@ import bodyParser from "body-parser";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs-extra";
-import { WebpayPlus } from "transbank-sdk";
+import pkg from "transbank-sdk";
 
+const { WebpayPlus } = pkg;
 const app = express();
 
 // Middleware
@@ -23,13 +24,15 @@ app.set("view engine", "ejs");
 const historialPath = path.join(__dirname, "historial.json");
 
 
+// INSTANCIA WEBPAY
 const webpay = new WebpayPlus.Transaction(
   "597055555532", 
-  "clave-secreta", 
-  "https://webpay3gint.transbank.cl" 
+  "clave-secreta",     
+  "https://webpay3gint.transbank.cl"
 );
 
 
+// CREAR TRANSACCIÓN
 app.post("/webpay/create", async (req, res) => {
   try {
     const { buyOrder, sessionId, amount } = req.body;
@@ -38,7 +41,7 @@ app.post("/webpay/create", async (req, res) => {
       buyOrder,
       sessionId,
       amount,
-      "http://192.168.0.20:3000/webpay/return" 
+      "https://proyecto-softcoffee-backend.onrender.com/webpay/return"
     );
 
     return res.json({
@@ -52,6 +55,8 @@ app.post("/webpay/create", async (req, res) => {
   }
 });
 
+
+// RETORNO
 app.get("/webpay/return", (req, res) => {
   const token = req.query.token_ws;
 
@@ -64,7 +69,6 @@ app.get("/webpay/return", (req, res) => {
 
 
 // CONFIRMAR TRANSACCIÓN
-
 app.post("/webpay/commit", async (req, res) => {
   const token = req.body.token_ws;
 
@@ -106,8 +110,7 @@ app.post("/webpay/commit", async (req, res) => {
 });
 
 
-// HISTORIAL DE USUARIO
-
+// HISTORIAL
 app.get("/historial/:correo", async (req, res) => {
   const correo = req.params.correo;
 
@@ -127,6 +130,7 @@ app.get("/historial/:correo", async (req, res) => {
 });
 
 
-app.listen(3000, () => {
-  console.log("Backend Webpay funcionando en http://localhost:3000");
+
+app.listen(10000, () => {
+  console.log("Backend Webpay funcionando en Render");
 });
