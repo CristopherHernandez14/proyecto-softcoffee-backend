@@ -33,20 +33,20 @@ const historialPath = path.join(__dirname, "historial.json");
 // ===============================
 // CREAR TRANSACCIÓN
 // ===============================
+
 app.post("/webpay/create", async (req, res) => {
   try {
     const { buyOrder, sessionId, amount } = req.body;
 
-    // 🔹 Intentamos crear la transacción con Transbank
-    const response = await WebpayPlus.Transaction.create({
-      buyOrder,
-      sessionId,
-      amount,
-      returnUrl: process.env.TBK_RETURN_URL,
+    // Crear la instancia de transacción de WebpayPlus
+    const transaction = new WebpayPlus.Transaction({
       commerceCode: process.env.TBK_COMMERCE_CODE,
       apiKey: process.env.TBK_API_KEY,
       environment: "integration"
     });
+
+    // Crear la transacción
+    const response = await transaction.create(buyOrder, sessionId, amount, process.env.TBK_RETURN_URL);
 
     console.log("✅ Transacción creada con éxito:", response);
 
@@ -56,21 +56,12 @@ app.post("/webpay/create", async (req, res) => {
     });
 
   } catch (error) {
-    // 🔹 Mostrar todo el error que devuelve Transbank
     console.error("❌ Error al crear transacción:", error);
-
-    // Mostrar detalles si Transbank devuelve response
-    if (error?.response) {
-      console.error("Detalles del error Transbank:", error.response);
-    }
-
     return res.status(500).json({
       error: "Error al crear transacción",
-      detalles: error?.response || error.message || error
+      detalles: error.message || error
     });
   }
-
-  
 });
 
 
