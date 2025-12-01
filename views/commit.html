@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Procesando Pago...</title>
+</head>
+<body>
+  <h2>Procesando pago... ⏳</h2>
+
+  <form id="commitForm" method="POST" action="/webpay/commit">
+    <input type="hidden" name="token_ws" value="<%= token %>">
+  </form>
+
+  <script>
+    document.getElementById("commitForm").submit();
+  </script>
+</body>
+</html>
