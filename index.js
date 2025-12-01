@@ -38,17 +38,27 @@ app.post("/webpay/create", async (req, res) => {
   try {
     const { buyOrder, sessionId, amount } = req.body;
 
-    // Crear la instancia de transacción de WebpayPlus
+    // 🔹 Mostrar variables para debug
+    console.log("🔹 buyOrder:", buyOrder);
+    console.log("🔹 sessionId:", sessionId);
+    console.log("🔹 amount:", amount);
+    console.log("🔹 returnUrl:", process.env.TBK_RETURN_URL);
+
     const transaction = new WebpayPlus.Transaction({
       commerceCode: process.env.TBK_COMMERCE_CODE,
       apiKey: process.env.TBK_API_KEY,
-      environment: "integration"
+      environment: WebpayPlus.Environment.Integration // 🔹 usar enum del SDK
     });
 
-    // Crear la transacción
-    const response = await transaction.create(buyOrder, sessionId, amount, process.env.TBK_RETURN_URL);
+    // 🔹 Crear transacción
+    const response = await transaction.create(
+      buyOrder,
+      sessionId,
+      amount,
+      new URL(process.env.TBK_RETURN_URL) // 🔹 parsear como URL explícitamente
+    );
 
-    console.log("✅ Transacción creada con éxito:", response);
+    console.log("✅ Transacción creada:", response);
 
     return res.json({
       url: response.url,
@@ -63,6 +73,7 @@ app.post("/webpay/create", async (req, res) => {
     });
   }
 });
+
 
 
 // ===============================
