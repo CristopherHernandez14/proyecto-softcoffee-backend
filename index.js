@@ -17,6 +17,9 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+app.get("/ping", (req, res) => {
+  res.json({ ok: true });
+});
 
 // Configurar vistas
 const __filename = fileURLToPath(import.meta.url);
@@ -66,6 +69,8 @@ app.post("/webpay/create", async (req, res) => {
       detalles: error?.response || error.message || error
     });
   }
+
+  
 });
 
 
@@ -142,3 +147,6 @@ const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log("Backend Webpay funcionando en Render en puerto", PORT);
 });
+
+
+
